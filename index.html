@@ -447,7 +447,7 @@ async function analyze() {
 
   const btn = document.getElementById('analyze-btn');
   btn.disabled = true;
-  setStatus('loading', '<span class="spinner"></span>Analyse en cours…');
+  setStatus('loading', '<span class="spinner"></span>Analyse en cours… (jusqu\'à 30s au premier appel)');
 
   try {
     const entities = await callHF(token, text);
@@ -479,12 +479,13 @@ async function callHF(token, text) {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
+          'x-wait-for-model': 'true',
         },
         body: JSON.stringify({ inputs: text }),
       }
     );
   } catch (networkErr) {
-    throw new Error('Impossible de joindre HuggingFace. Vérifiez votre connexion internet, puis réessayez.');
+    throw new Error('Requête bloquée par le navigateur (CORS). Essayez depuis un autre navigateur ou vérifiez votre connexion.');
   }
 
   if (res.status === 503) {
