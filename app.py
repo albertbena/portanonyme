@@ -264,15 +264,7 @@ def pseudonymize(text, mode):
     return pseudonymized, table
 
 # ─── Interface Gradio ─────────────────────────────────────────────────────────
-with gr.Blocks(
-    title="PortAnonyme — Pseudonymisation PII français",
-    theme=gr.themes.Base(primary_hue="violet", neutral_hue="slate"),
-    css="""
-        .gradio-container { max-width: 980px !important; }
-        #title    { text-align: center; margin-bottom: 4px; }
-        #subtitle { text-align: center; color: #94a3b8; font-size: 13px; margin-bottom: 20px; }
-    """,
-) as demo:
+with gr.Blocks(title="PortAnonyme — Pseudonymisation PII français") as demo:
     gr.Markdown("# PortAnonyme", elem_id="title")
     gr.Markdown(
         "Pseudonymisation PII en français · NER `Anonym-IA/V2-camembert-ner-pii-french` + regex",
@@ -299,7 +291,6 @@ with gr.Blocks(
                 label="Texte pseudonymisé",
                 lines=16,
                 interactive=False,
-                show_copy_button=True,
             )
 
     entities_md = gr.Markdown()
@@ -327,4 +318,6 @@ with gr.Blocks(
         inputs=[input_text, mode],
     )
 
-demo.launch()
+demo.launch(
+    theme=gr.themes.Base(primary_hue="violet", neutral_hue="slate"),
+)
