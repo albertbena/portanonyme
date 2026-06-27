@@ -470,36 +470,67 @@ async function analyze() {
 }
 
 async function callHF(token, text) {
-  const res = await fetch(
-    `https://api-inference.huggingface.co/models/${MODEL}`,
-    {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        inputs: text,
-        parameters: { aggregation_strategy: 'simple' },
-      }),
-    }
-  );
+  let res;
+  try {
+    res = await fetch(
+      `https://api-inference.huggingface.co/models/${MODEL}`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ inputs: text }),
+      }
+    );
+  } catch (networkErr) {
+    throw new Error('Impossible de joindre HuggingFace. Vérifiez votre connexion internet, puis réessayez.');
+  }
 
   if (res.status === 503) {
-    // Model loading
-    const d = await res.json().catch(() => ({}));
-    const wait = d.estimated_time ? Math.ceil(d.estimated_time) : 20;
-    throw new Error(`Modèle en cours de chargement, réessayez dans ~${wait}s.`);
+    let wait = 20;
+    try { const d = await res.json(); wait = Math.ceil(d.estimated_time || 20); } catch(_) {}
+    throw new Error(`Le modèle est en cours de chargement sur HuggingFace (~${wait}s). Patientez puis réessayez.`);
+  }
+  if (res.status === 401) {
+    throw new Error('Token HuggingFace invalide. Vérifiez votre token sur huggingface.co/settings/tokens.');
   }
   if (!res.ok) {
-    const d = await res.json().catch(() => ({}));
-    throw new Error(d.error || `Erreur API : ${res.status}`);
+    let msg = `Erreur API : ${res.status}`;
+    try { const d = await res.json(); msg = d.error || msg; } catch(_) {}
+    throw new Error(msg);
   }
 
   const data = await res.json();
-  // data may be an array directly or wrapped
   const raw = Array.isArray(data) ? data : (data.outputs || data.predictions || []);
-  return normalizeEntities(raw);
+
+  // Group BIO tokens into entities if not already grouped
+  return normalizeEntities(groupBIO(raw));
+}
+
+function groupBIO(tokens) {
+  // If already grouped (has entity_group), return as-is
+  if (tokens.length && tokens[0].entity_group) return tokens;
+
+  const grouped = [];
+  let current = null;
+  for (const t of tokens) {
+    const raw = (t.entity || t.label || '');
+    const bio = raw.startsWith('B-') ? 'B' : raw.startsWith('I-') ? 'I' : 'O';
+    const label = raw.replace(/^[BI]-/, '');
+    if (bio === 'O') { current = null; continue; }
+    if (bio === 'B' || !current || current.entity_group !== label) {
+      current = { entity_group: label, word: t.word || '', start: t.start ?? 0, end: t.end ?? 0, score: t.score ?? 0 };
+      grouped.push(current);
+    } else {
+      // I- token: extend current entity
+      const w = t.word || '';
+      current.word += w.startsWith('▁') ? ' ' + w.slice(1) : w.startsWith('##') ? w.slice(2) : ' ' + w;
+      current.end = t.end ?? current.end;
+      current.score = (current.score + (t.score ?? 0)) / 2;
+    }
+  }
+  return grouped;
 }
 
 function normalizeEntities(raw) {
