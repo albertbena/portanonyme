@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PortAnonyme — Pseudonymisation PII français</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3248;
+      --accent: #6c63ff;
+      --accent-hover: #8178ff;
+      --text: #e8eaf6;
+      --text-muted: #8892b0;
+      --green: #43d9ad;
+      --yellow: #f7c948;
+      --red: #ff6b6b;
+      --orange: #ffb347;
+      --pink: #ff79c6;
+      --cyan: #8be9fd;
+      --radius: 10px;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 20px 32px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    header .logo {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    header .logo span { color: var(--accent); }
+    header .badge {
+      font-size: 11px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      padding: 2px 8px;
+      border-radius: 20px;
+      color: var(--text-muted);
+    }
+    header .model-tag {
+      margin-left: auto;
+      font-size: 11px;
+      color: var(--text-muted);
+      background: var(--surface2);
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    main {
+      flex: 1;
+      max-width: 1100px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 32px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .token-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+    }
+    .token-bar label { font-size: 13px; color: var(--text-muted); white-space: nowrap; }
+    .token-bar input {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 6px 12px;
+      font-size: 13px;
+      font-family: monospace;
+    }
+    .token-bar input:focus { outline: none; border-color: var(--accent); }
+    .token-bar a { font-size: 12px; color: var(--accent); text-decoration: none; white-space: nowrap; }
+    .token-bar a:hover { text-decoration: underline; }
+
+    .columns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 700px) { .columns { grid-template-columns: 1fr; } }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+    }
+    .panel-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .panel-header .chars { font-size: 11px; font-weight: 400; }
+
+    textarea {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.7;
+      padding: 16px;
+      resize: none;
+      min-height: 240px;
+      font-family: inherit;
+    }
+    textarea:focus { outline: none; }
+    textarea::placeholder { color: var(--text-muted); }
+
+    .output-text {
+      flex: 1;
+      padding: 16px;
+      font-size: 15px;
+      line-height: 1.7;
+      min-height: 240px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: var(--text-muted);
+    }
+    .output-text.has-content { color: var(--text); }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    button {
+      padding: 10px 24px;
+      border-radius: 8px;
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-primary:disabled { opacity: 0.5; cursor: default; }
+
+    .btn-secondary {
+      background: var(--surface2);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { color: var(--text); border-color: var(--text-muted); }
+
+    .status {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-left: auto;
+    }
+    .status.loading { color: var(--accent); }
+    .status.error { color: var(--red); }
+    .status.ok { color: var(--green); }
+
+    /* Highlighted entities */
+    .ent {
+      border-radius: 3px;
+      padding: 1px 3px;
+      font-weight: 600;
+      cursor: default;
+      position: relative;
+    }
+    .ent-PER  { background: rgba(108,99,255,0.25); color: var(--accent-hover); }
+    .ent-ORG  { background: rgba(67,217,173,0.2); color: var(--green); }
+    .ent-LOC  { background: rgba(255,179,71,0.2); color: var(--orange); }
+    .ent-EMAIL { background: rgba(139,233,253,0.2); color: var(--cyan); }
+    .ent-PHONE { background: rgba(255,121,198,0.2); color: var(--pink); }
+    .ent-DATE { background: rgba(247,201,72,0.2); color: var(--yellow); }
+    .ent-MISC { background: rgba(255,107,107,0.2); color: var(--red); }
+    .ent-ADDR { background: rgba(255,179,71,0.2); color: var(--orange); }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+    }
+    .legend-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+    }
+
+    .entities-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .entities-panel .panel-header { border-radius: var(--radius) var(--radius) 0 0; }
+    .entities-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .entities-table th {
+      padding: 8px 16px;
+      text-align: left;
+      color: var(--text-muted);
+      font-weight: 500;
+      border-bottom: 1px solid var(--border);
+    }
+    .entities-table td {
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .entities-table tr:last-child td { border-bottom: none; }
+    .entities-table .original { color: var(--text-muted); font-style: italic; }
+    .entities-table .replacement { font-weight: 600; }
+    .entities-table .score {
+      color: var(--text-muted);
+      font-family: monospace;
+      font-size: 12px;
+    }
+
+    .copy-btn {
+      font-size: 11px;
+      padding: 4px 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+    .copy-btn:hover { color: var(--text); }
+
+    .empty-state {
+      padding: 32px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .mode-toggle {
+      display: flex;
+      gap: 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 4px;
+    }
+    .mode-toggle button {
+      padding: 5px 14px;
+      font-size: 12px;
+      border-radius: 5px;
+      background: transparent;
+      color: var(--text-muted);
+      border: none;
+    }
+    .mode-toggle button.active {
+      background: var(--accent);
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Port<span>Anonyme</span></div>
+  <div class="badge">FR PII</div>
+  <div class="model-tag">Anonym-IA/V2-camembert-ner-pii-french</div>
+</header>
+
+<main>
+
+  <!-- HF Token -->
+  <div class="token-bar">
+    <label>Token HuggingFace</label>
+    <input type="password" id="hf-token" placeholder="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" />
+    <a href="https://huggingface.co/settings/tokens" target="_blank">Obtenir un token →</a>
+  </div>
+
+  <!-- Mode -->
+  <div style="display:flex; align-items:center; gap:12px;">
+    <span style="font-size:13px;color:var(--text-muted)">Mode :</span>
+    <div class="mode-toggle">
+      <button id="mode-tags" class="active" onclick="setMode('tags')">Balises [ENTITÉ]</button>
+      <button id="mode-fake" onclick="setMode('fake')">Pseudonymes fictifs</button>
+    </div>
+  </div>
+
+  <!-- Editor columns -->
+  <div class="columns">
+    <div class="panel">
+      <div class="panel-header">
+        Texte original
+        <span class="chars" id="char-count">0 caractères</span>
+      </div>
+      <textarea id="input-text" placeholder="Collez ici votre texte en français contenant des données personnelles…
+
+Exemple : Bonjour, je m'appelle Jean Dupont et mon email est jean.dupont@example.fr. Je réside au 12 rue de la Paix, 75001 Paris. Mon numéro de téléphone est le 06 12 34 56 78."></textarea>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        Texte pseudonymisé
+        <button class="btn-secondary copy-btn" onclick="copyOutput()">Copier</button>
+      </div>
+      <div class="output-text" id="output-text">Le résultat apparaîtra ici…</div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="actions">
+    <button class="btn-primary" id="analyze-btn" onclick="analyze()">
+      Pseudonymiser
+    </button>
+    <button class="btn-secondary" onclick="clearAll()">Effacer</button>
+    <span class="status" id="status"></span>
+  </div>
+
+  <!-- Entities table -->
+  <div class="entities-panel">
+    <div class="panel-header">
+      Entités détectées
+      <span id="entity-count" style="font-weight:400"></span>
+    </div>
+    <div id="entities-container">
+      <div class="empty-state">Les entités PII détectées apparaîtront ici.</div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+let mode = 'tags';
+const MODEL = 'Anonym-IA/V2-camembert-ner-pii-french';
+
+// Fake French names/data for pseudonym mode
+const FAKE = {
+  PER:   ['Alice Martin', 'Pierre Moreau', 'Sophie Bernard', 'Luc Dubois', 'Emma Leroy', 'Thomas Petit', 'Chloé Roux', 'Antoine Simon'],
+  ORG:   ['Société Générale SA', 'Entreprise Dupuis', 'Cabinet Lemaire', 'Groupe Horizon', 'SARL Lumière'],
+  LOC:   ['Lyon', 'Bordeaux', 'Lille', 'Nantes', 'Strasbourg', 'Rennes', 'Grenoble'],
+  EMAIL: ['contact@exemple.fr', 'info@domaine.fr', 'user@messagerie.fr'],
+  PHONE: ['01 23 45 67 89', '06 00 11 22 33', '07 99 88 77 66'],
+  DATE:  ['le 1er janvier 2000', 'le 15 mars 1990', 'le 20 juillet 1985'],
+  ADDR:  ['10 avenue des Fleurs, 69000 Lyon', '5 rue des Lilas, 33000 Bordeaux'],
+  MISC:  ['[RÉFÉRENCE]'],
+};
+
+// Label normalization
+const LABEL_MAP = {
+  'PER': 'PER', 'PERSON': 'PER', 'NOM': 'PER', 'PRENOM': 'PER',
+  'ORG': 'ORG', 'ORGANIZATION': 'ORG', 'ORGANISATION': 'ORG',
+  'LOC': 'LOC', 'LOCATION': 'LOC', 'LIEU': 'LOC', 'GPE': 'LOC',
+  'EMAIL': 'EMAIL', 'COURRIEL': 'EMAIL',
+  'PHONE': 'PHONE', 'TEL': 'PHONE', 'TELEPHONE': 'PHONE',
+  'DATE': 'DATE',
+  'ADDRESS': 'ADDR', 'ADRESSE': 'ADDR', 'ADDR': 'ADDR',
+  'MISC': 'MISC', 'DIVERS': 'MISC',
+};
+
+const LABEL_FR = {
+  PER: 'Personne', ORG: 'Organisation', LOC: 'Lieu',
+  EMAIL: 'Email', PHONE: 'Téléphone', DATE: 'Date',
+  ADDR: 'Adresse', MISC: 'Divers',
+};
+
+const LABEL_COLORS = {
+  PER: '#6c63ff', ORG: '#43d9ad', LOC: '#ffb347',
+  EMAIL: '#8be9fd', PHONE: '#ff79c6', DATE: '#f7c948',
+  ADDR: '#ffb347', MISC: '#ff6b6b',
+};
+
+// ─── Token persistence ────────────────────────────────────────────────────────
+const tokenInput = document.getElementById('hf-token');
+tokenInput.value = localStorage.getItem('hf_token') || '';
+tokenInput.addEventListener('change', () => localStorage.setItem('hf_token', tokenInput.value.trim()));
+
+// ─── Char counter ─────────────────────────────────────────────────────────────
+const textArea = document.getElementById('input-text');
+textArea.addEventListener('input', () => {
+  document.getElementById('char-count').textContent = `${textArea.value.length} caractères`;
+});
+
+// ─── Mode ─────────────────────────────────────────────────────────────────────
+function setMode(m) {
+  mode = m;
+  document.getElementById('mode-tags').classList.toggle('active', m === 'tags');
+  document.getElementById('mode-fake').classList.toggle('active', m === 'fake');
+}
+
+// ─── Analyze ──────────────────────────────────────────────────────────────────
+async function analyze() {
+  const token = tokenInput.value.trim();
+  const text  = textArea.value.trim();
+
+  if (!token) { setStatus('error', 'Veuillez entrer votre token HuggingFace.'); return; }
+  if (!text)  { setStatus('error', 'Veuillez entrer du texte à pseudonymiser.'); return; }
+
+  const btn = document.getElementById('analyze-btn');
+  btn.disabled = true;
+  setStatus('loading', '<span class="spinner"></span>Analyse en cours…');
+
+  try {
+    const entities = await callHF(token, text);
+    if (!entities || entities.length === 0) {
+      setStatus('ok', 'Aucune entité PII détectée.');
+      renderOutput(text, [], {});
+      renderEntities([]);
+      return;
+    }
+
+    const { mapping, pseudonymized } = buildPseudonyms(text, entities);
+    renderOutput(text, entities, mapping);
+    renderEntities(entities, mapping);
+    setStatus('ok', `${entities.length} entité(s) détectée(s).`);
+  } catch (e) {
+    setStatus('error', e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function callHF(token, text) {
+  const res = await fetch(
+    `https://api-inference.huggingface.co/models/${MODEL}`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        inputs: text,
+        parameters: { aggregation_strategy: 'simple' },
+      }),
+    }
+  );
+
+  if (res.status === 503) {
+    // Model loading
+    const d = await res.json().catch(() => ({}));
+    const wait = d.estimated_time ? Math.ceil(d.estimated_time) : 20;
+    throw new Error(`Modèle en cours de chargement, réessayez dans ~${wait}s.`);
+  }
+  if (!res.ok) {
+    const d = await res.json().catch(() => ({}));
+    throw new Error(d.error || `Erreur API : ${res.status}`);
+  }
+
+  const data = await res.json();
+  // data may be an array directly or wrapped
+  const raw = Array.isArray(data) ? data : (data.outputs || data.predictions || []);
+  return normalizeEntities(raw);
+}
+
+function normalizeEntities(raw) {
+  return raw
+    .filter(e => e && (e.entity_group || e.entity || e.label))
+    .map(e => {
+      const rawLabel = (e.entity_group || e.entity || e.label || '').replace(/^[BI]-/, '');
+      const label = LABEL_MAP[rawLabel.toUpperCase()] || 'MISC';
+      return {
+        label,
+        word: e.word || e.text || '',
+        start: e.start ?? 0,
+        end: e.end ?? 0,
+        score: e.score ?? 0,
+      };
+    })
+    .sort((a, b) => a.start - b.start);
+}
+
+// ─── Build pseudonyms ─────────────────────────────────────────────────────────
+function buildPseudonyms(text, entities) {
+  const counters = {};
+  const wordMap  = {};
+  const mapping  = {};   // entity.word → replacement
+
+  // Consistent: same original text → same replacement
+  for (const ent of entities) {
+    const key = ent.word.trim().toLowerCase();
+    if (wordMap[key]) { mapping[ent.word] = wordMap[key]; continue; }
+
+    counters[ent.label] = (counters[ent.label] || 0) + 1;
+    const n = counters[ent.label];
+
+    let replacement;
+    if (mode === 'tags') {
+      replacement = `[${(LABEL_FR[ent.label] || ent.label).toUpperCase()}_${n}]`;
+    } else {
+      const pool = FAKE[ent.label] || FAKE.MISC;
+      replacement = pool[(n - 1) % pool.length];
+    }
+
+    wordMap[key]      = replacement;
+    mapping[ent.word] = replacement;
+  }
+
+  // Build pseudonymized text (replace from end to preserve indices)
+  let pseudo = text;
+  const sorted = [...entities].sort((a, b) => b.start - a.start);
+  for (const ent of sorted) {
+    const rep = mapping[ent.word] || `[${ent.label}]`;
+    pseudo = pseudo.slice(0, ent.start) + rep + pseudo.slice(ent.end);
+  }
+
+  return { mapping, pseudonymized: pseudo };
+}
+
+// ─── Render output (highlighted original) ────────────────────────────────────
+function renderOutput(text, entities, mapping) {
+  const el = document.getElementById('output-text');
+
+  if (entities.length === 0) {
+    el.className = 'output-text has-content';
+    el.textContent = text;
+    return;
+  }
+
+  // Build pseudonymized plain text for the right panel
+  const sorted = [...entities].sort((a, b) => b.start - a.start);
+  let pseudo = text;
+  for (const ent of sorted) {
+    const rep = mapping[ent.word] || `[${ent.label}]`;
+    pseudo = pseudo.slice(0, ent.start) + rep + pseudo.slice(ent.end);
+  }
+
+  el.className = 'output-text has-content';
+  el.textContent = pseudo;
+}
+
+// ─── Render entities table ────────────────────────────────────────────────────
+function renderEntities(entities, mapping = {}) {
+  const container = document.getElementById('entities-container');
+  const count     = document.getElementById('entity-count');
+
+  if (!entities.length) {
+    count.textContent = '';
+    container.innerHTML = '<div class="empty-state">Aucune entité PII détectée dans ce texte.</div>';
+    return;
+  }
+
+  count.textContent = `${entities.length} entité(s)`;
+
+  const rows = entities.map(e => {
+    const color = LABEL_COLORS[e.label] || '#8892b0';
+    const rep   = mapping[e.word] || `[${e.label}]`;
+    const pct   = Math.round(e.score * 100);
+    return `
+      <tr>
+        <td><span style="display:inline-flex;align-items:center;gap:6px;">
+          <span style="width:8px;height:8px;border-radius:50%;background:${color};display:inline-block;"></span>
+          ${escHtml(LABEL_FR[e.label] || e.label)}
+        </span></td>
+        <td class="original">${escHtml(e.word)}</td>
+        <td class="replacement" style="color:${color}">${escHtml(rep)}</td>
+        <td class="score">${pct}%</td>
+      </tr>`;
+  }).join('');
+
+  container.innerHTML = `
+    <table class="entities-table">
+      <thead><tr>
+        <th>Type</th>
+        <th>Original</th>
+        <th>Remplacement</th>
+        <th>Confiance</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function setStatus(type, msg) {
+  const el = document.getElementById('status');
+  el.className = `status ${type}`;
+  el.innerHTML = msg;
+}
+
+function clearAll() {
+  textArea.value = '';
+  document.getElementById('char-count').textContent = '0 caractères';
+  document.getElementById('output-text').className = 'output-text';
+  document.getElementById('output-text').textContent = 'Le résultat apparaîtra ici…';
+  renderEntities([]);
+  setStatus('', '');
+}
+
+function copyOutput() {
+  const text = document.getElementById('output-text').textContent;
+  if (text && text !== 'Le résultat apparaîtra ici…') {
+    navigator.clipboard.writeText(text).then(() => setStatus('ok', 'Copié !'));
+  }
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>
